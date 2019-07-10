@@ -80,7 +80,7 @@ def csv_mapping_parser(path, template):
     So for example::
 
         template = ['address', 'type', 'size', 'name', 'function']
-        mappings = json_mapping_parser('mapping.json', template)
+        mappings = csv_mapping_parser('mapping.csv', template)
 
     :param path: The path to the csv input file
     :param template: The row value template
@@ -89,7 +89,7 @@ def csv_mapping_parser(path, template):
     mapping_blocks = defaultdict(dict)
     with open(path, 'r') as handle:
         reader = csv.reader(handle)
-        reader.next() # skip the csv header
+        next(reader) # skip the csv header
         for row in reader:
             mapping = dict(zip(template, row))
             fid = mapping.pop('function')
@@ -107,7 +107,7 @@ def json_mapping_parser(path, template):
     to be mapped: address, size, and type. All the remaining
     values will be stored, but not formatted by the application.
     So for example::
-
+        
         template = {
             'Start': 'address',
             'DataType': 'type',
@@ -116,18 +116,19 @@ def json_mapping_parser(path, template):
         }
         mappings = json_mapping_parser('mapping.json', template)
 
-    :param path: The path to the csv input file
+    :param path: The path to the json input file
     :param template: The row value template
-    :returns: The decoded csv dictionary
+    :returns: The decoded json dictionary
     """
-    mapping_blocks = {}
+    mapping_blocks = defaultdict(dict)
     with open(path, 'r') as handle:
-        for tid, rows in json.load(handle).iteritems():
+        for rows in json.load(handle):
             mappings = {}
-            for key, values in rows.iteritems():
-                mapping = {template.get(k, k) : v for k, v in values.iteritems()}
-                mappings[int(key)] = mapping
-            mapping_blocks[tid] = mappings
+            for key, value in rows.items():
+                mapping = {template.get(key, key) : value}
+                mappings.update(mapping)
+            aid = int(mappings['address'])
+            mapping_blocks[aid] = mappings
     return mapping_blocks
 
 
@@ -223,8 +224,8 @@ class ModbusTypeDecoder(object):
     # ------------------------------------------------------------ #
     @staticmethod
     def parse_string(tokens):
-        _ = tokens.next()
-        size = int(tokens.next())
+        _ = next(tokens)
+        size = int(next(tokens))
         return lambda d: d.decode_string(size=size)
 
     @staticmethod
@@ -293,7 +294,7 @@ class ModbusTypeDecoder(object):
         :returns: The decoder method to use
         """
         tokens = self.tokenize(value)
-        token  = tokens.next().lower()
+        token  = next(tokens).lower()
         parser = self.parsers.get(token, self.default)
         return parser(tokens)
 
